@@ -3,7 +3,8 @@
 eval 'exec /usr/bin/perl  -S $0 ${1+"$@"}'
     if 0; # not running under some shell
 #
-# Based on GISKismet 0.02 by Joshua D. Abraham < jabra@spl0it.org >
+# Copyright (C) 2009-2010   Joshua D. Abraham < jabra@spl0it.org >
+# Copyright (C) 2016        m4tze
 #
 # This program is released under the terms of the GNU General Public License
 # (GPL). The GPL specifies the terms under which users may copy and use this 
@@ -21,8 +22,8 @@ use DBI;
 use vars qw( $PROG );
 
 ( $PROG = $0 ) =~ s/^.*[\/\\]//;    # Truncate calling path from the prog name
-my $AUTH    = '';    # author
-my $EMAIL   = '';          # email
+my $AUTH    = '';                          # author
+my $EMAIL   = '';                          # email
 my $VERSION = '0.03';                      # version
 
 my %options;                               # getopts hash
@@ -633,7 +634,7 @@ if ( $options{xml} ) {
 
         # ok see if the BSSID is known
         my $sql
-            = qq/SELECT BSSID FROM wireless WHERE BSSID="$node{'BSSID'}"; /;
+            = qq/SELECT Id, BSSID, BestSignal FROM wireless WHERE BSSID="$node{'BSSID'}"; /;
 
         if ( $node{'NetType'} ne "infrastructure" ) {
 			next;
@@ -648,52 +649,75 @@ if ( $options{xml} ) {
         my $sth = $dbh->prepare("$sql");
         $sth->execute();
         my $rows = 0;
-        while ( my $row = $sth->fetchrow_arrayref ) {
+        my $last = {};
+        while ( my $row = $sth->fetchrow_hashref() ) {
             $rows = $rows + 1;
+            $last = $row;
         }
         if ( $rows != 0 ) {
-            if ( $options{silent} == 0 ) {
+            if ( ( $node{'BestSignal'} != 0 ) and ( $node{'BestSignal'} > $last->{BestSignal} ) ){
+                my $update = $dbh->prepare('UPDATE wireless SET BestSignal=?, GPSMinLat=?, GPSMinLon=?, GPSMinAlt=?, GPSMinSpd=?, GPSMaxLat=?, GPSMaxLon=?, GPSMaxAlt=?, GPSMaxSpd=?, GPSBestLat=?, GPSBestLon=?, GPSBestAlt=? WHERE Id=?');
+                my $wn_success = 1;
+                $wn_success &&= $update->execute(
+                    $node{'BestSignal'},
+                    $node{'GPSMinLat'},   $node{'GPSMinLon'},
+                    $node{'GPSMinAlt'},   $node{'GPSMinSpd'},
+                    $node{'GPSMaxLat'},   $node{'GPSMaxLon'},
+                    $node{'GPSMaxAlt'},   $node{'GPSMaxSpd'},
+                    $node{'GPSBestLat'},  $node{'GPSBestLon'},
+                    $node{'GPSBestAlt'},  $last->{Id}
+                ) or die "Error updating AP: $!\n";
+
+                $id++;
+                if ( $options{silent} == 0 ) {
+                    print "AP updated\n";
+                }
+                next;
+                
+            }
+            elsif ( $options{silent} == 0 ) {
                 print "\n";
             }
             next;
         }
-
-        my $insert = $dbh->prepare(
-            'INSERT INTO wireless VALUES
-            (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)'
-        );
-        if ( $options{debug} > 2 ) {
-            foreach my $key ( sort keys %node ) {
-                print "$key => " . $node{$key} . "\n";
+        else{
+            my $insert = $dbh->prepare(
+                'INSERT INTO wireless VALUES
+                (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)'
+            );
+            if ( $options{debug} > 2 ) {
+                foreach my $key ( sort keys %node ) {
+                    print "$key => " . $node{$key} . "\n";
+                }
             }
-        }
-        my $wn_success = 1;
-        $wn_success &&= $insert->execute(
-            $id,                  $node{'NetworkID'},
-            $node{'NetType'},     $node{'ESSID'},
-            $node{'BSSID'},       $node{'Manuf'},
-            $node{'Info'},        $node{'Channel'},
-            $node{'Cloaked'},     $node{'Encryption'},
-            $node{'Decrypted'},   $node{'MaxRate'},
-            $node{'MaxSeenRate'}, $node{'Beacon'},
-            $node{'LLC'},         $node{'Data'},
-            $node{'Crypt'},       $node{'Weak'},
-            $node{'Total'},       $node{'Carrier'},
-            $node{'Encoding'},    $node{'FirstTime'},
-            $node{'LastTime'},    $node{'BestQuality'},
-            $node{'BestSignal'},  $node{'BestNoise'},
-            $node{'GPSMinLat'},   $node{'GPSMinLon'},
-            $node{'GPSMinAlt'},   $node{'GPSMinSpd'},
-            $node{'GPSMaxLat'},   $node{'GPSMaxLon'},
-            $node{'GPSMaxAlt'},   $node{'GPSMaxSpd'},
-            $node{'GPSBestLat'},  $node{'GPSBestLon'},
-            $node{'GPSBestAlt'},  $node{'DataSize'},
-            $node{'IPType'},      $node{'IP'}
-        ) or die "Error inserting AP: $!\n";
+            my $wn_success = 1;
+            $wn_success &&= $insert->execute(
+                $id,                  $node{'NetworkID'},
+                $node{'NetType'},     $node{'ESSID'},
+                $node{'BSSID'},       $node{'Manuf'},
+                $node{'Info'},        $node{'Channel'},
+                $node{'Cloaked'},     $node{'Encryption'},
+                $node{'Decrypted'},   $node{'MaxRate'},
+                $node{'MaxSeenRate'}, $node{'Beacon'},
+                $node{'LLC'},         $node{'Data'},
+                $node{'Crypt'},       $node{'Weak'},
+                $node{'Total'},       $node{'Carrier'},
+                $node{'Encoding'},    $node{'FirstTime'},
+                $node{'LastTime'},    $node{'BestQuality'},
+                $node{'BestSignal'},  $node{'BestNoise'},
+                $node{'GPSMinLat'},   $node{'GPSMinLon'},
+                $node{'GPSMinAlt'},   $node{'GPSMinSpd'},
+                $node{'GPSMaxLat'},   $node{'GPSMaxLon'},
+                $node{'GPSMaxAlt'},   $node{'GPSMaxSpd'},
+                $node{'GPSBestLat'},  $node{'GPSBestLon'},
+                $node{'GPSBestAlt'},  $node{'DataSize'},
+                $node{'IPType'},      $node{'IP'}
+            ) or die "Error inserting AP: $!\n";
 
-        $id++;
-        if ( $options{silent} == 0 ) {
-            print "AP added\n";
+            $id++;
+            if ( $options{silent} == 0 ) {
+                print "AP added\n";
+            }
         }
 
         foreach my $client ( $wn->getElementsByTagName('wireless-client') ) {
