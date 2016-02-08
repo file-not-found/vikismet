@@ -13,5 +13,5 @@ You will need to install the following modules for vikismet to work
 * updates positions of known APs in case of better signal
 
 ## Howto
-import APs: `vikismet -x kismet_file.netxml -d my_database`
-create kml file: `vikismet -q "select * from wireless" -d my_database -o out.kml`
+* import APs: `vikismet -x kismet_file.netxml -d my_database` 
+* create kml file: `vikismet -q "select * from wireless" -d my_database -o out.kml`
