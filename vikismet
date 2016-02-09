@@ -51,14 +51,10 @@ $options{debug}  = 0;
 $options{silent} = 0;
 $options{ignoregps} = 0;
 
-my $OPACITY = 127;                       # transparency
-my $ALPHA = sprintf( "%x", $OPACITY );
-
-my $RED    = '0000FF';
-my $ORANGE = '0090FF';
-my $YELLOW = '00FFFF';
-my $GREEN  = '00FF00';
-my $GREY   = '7E7E7E';
+my $SYM_RSN  = 'Navaid, Blue';
+my $SYM_WPA  = 'Navaid, Violet';
+my $SYM_WEP  = 'Navaid, Orange';
+my $SYM_OPEN = 'Navaid, White';
 
 my $CALCRANGE  = 0;                      # calculate network range
 my $DRAWCENTER = 1;                      # draw center of network
@@ -195,66 +191,6 @@ sub create_clients_table {
 
 }
 
-########
-## NOTE: this aspect was taken from kisgearth
-########
-# This is based on the signal strength which isn't used for
-# computation. Only using the ranges to make sure all APs fit on the
-# screen when the map is loaded.
-#
-#
-# This will be rewritten later.
-#
-# calculate network position (and range - rudimentary)
-sub calc_pos {
-
-    my ( $minlon_in, $minlat_in, $maxlon_in, $maxlat_in, $bssid ) = @_;
-    my $altitude_out   = 0;
-    my $range_out      = 7;
-    my $heading_out    = 0;
-    my $tilt_out       = 0;
-    my $coords_out     = "0.0,0.0";
-    my $lon_out        = 0.0;
-    my $lat_out        = 0.0;
-    my $scale_out      = 0.0;
-    my $dummy          = 0;
-    my $tmp_netgps_cnt = 0;
-
-    my @data = @{ runSql("select * from wireless where BSSID='$bssid'") };
-    if ( scalar(@data) == 1 ) {
-
-    }
-    else {
-        $dummy   = ( $maxlon_in - $minlon_in ) / 2;
-        $lon_out = $minlon_in + $dummy;
-
-        $dummy   = ( $maxlat_in - $minlat_in ) / 2;
-        $lat_out = $minlat_in + $dummy;
-    }
-
-    $coords_out = "$lon_out,$lat_out,0";
-
-    if ( $CALCRANGE == 1 ) {
-        $scale_out
-            = ( ( ( $maxlat_in - $minlat_in ) + ( $maxlon_in - $minlon_in ) )
-            / 2 ) * 1850;
-
-        if ( $scale_out < 0.8 ) {
-            $scale_out = 0.8;
-        }
-        elsif ( $scale_out > 4.0 ) {
-            $scale_out = 4.0;
-        }
-    }
-    else {
-        $scale_out = $CENTERSIZE;
-    }
-
-    return
-        "$lon_out|$lat_out|$coords_out|$altitude_out|$range_out|$heading_out|$tilt_out|$scale_out";
-
-}    # sub calc_pos
-
 ##############################################################################
 #
 # help ->
@@ -285,8 +221,8 @@ Query
    -m  --manual [csv]               CSV output of manual SQL query
 
    -o  --output [file]              Output filename
-   -n  --name [str]                 Name of the KML layer
-       --desc [str]                 Description of the KML layer
+   -n  --name [str]                 Name of the GPX layer
+       --desc [str]                 Description of the GPX layer
 
 General Options:                
        --ignore-gps                 Import data even when GPS fields are missing
@@ -933,13 +869,15 @@ if ( $options{query} ) {
     else {
         $description = $options{query};
     }
-    my $kml = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n";
-    $kml .= "<kml xmlns=\"http://earth.google.com/kml/2.2\">\n";
-    $kml .= "<Document>\n";
-    $kml .= "  <name>$name</name>\n";
+    my $gpx = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n";
+    $gpx .= "<gpx version=\"1.0\" creator=\"vikismet\"\n";
+    $gpx .= "xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\"\n";
+    $gpx .= "xmlns=\"http://www.topografix.com/GPX/1/0\"\n";
+    $gpx .= "xsi:schemaLocation=\"http://www.topografix.com/GPX/1/0 http://www.topografix.com/GPX/1/0/gpx.xsd\">\n";
+    $gpx .= "  <name>$name</name>\n";
 
     if ( defined($description) ) {
-        $kml .= "  <description>$description</description>\n";
+        $gpx .= "  <desc>$description</desc>\n";
     }
 
     my @data;
@@ -962,7 +900,7 @@ if ( $options{query} ) {
         foreach my $i (@data) {
             my $num     = 0;
             my $counter = 0;
-            my $color;
+            my $symbol;
             foreach my $mykey (@mykeys) {
                 $node{$mykey} = $$i[$num];
                 $num++;
@@ -970,7 +908,7 @@ if ( $options{query} ) {
             if ( $node{'NetType'} ne "infrastructure" ) {
                 next;
             }
-            if ( $node{'GPSBestLat'} == 0 or $node{'GPSBestLat'} == 0 ) {
+            if ( $node{'GPSBestLat'} == 0 and $node{'GPSBestLon'} == 0 ) {
                 next;
             }
             $node{'ESSID'} =~ s/\</_/g;
@@ -986,16 +924,16 @@ if ( $options{query} ) {
             }
 
             if ( $node{Encryption} =~ /AES\-CCM/i ) {
-                $color = $GREEN;
+                $symbol = $SYM_RSN;
             }
             elsif ( $node{Encryption} =~ /TKIP/i ) {
-                $color = $YELLOW;
+                $symbol = $SYM_WPA;
             }
             elsif ( $node{Encryption} =~ /WEP/i ) {
-                $color = $ORANGE;
+                $symbol = $SYM_WEP;
             }
             else {
-                $color = $RED;
+                $symbol = $SYM_OPEN;
             }
 
             # ok see if the BSSID is known
@@ -1006,72 +944,28 @@ if ( $options{query} ) {
             my $clients     = '';
             my $client_list = $sth->fetchall_hashref('cid');
             if ($sth->rows > 1){
-                $clients .= ', Current Clients: ';
+                $clients .= ', Clients: ';
                 foreach my $i ( sort keys %{$client_list} ) {
                     if ( $client_list->{$i}->{mac} ne $node{BSSID} ) {
                         $clients .= $client_list->{$i}->{mac}.", ";
                     }
                 }
             }
-            my ( $net_lon, $net_lat, $net_coords, $net_alt, $net_range,
-                $net_head, $net_tilt, $net_scale_range )
-                = split(
-                /\|/,
-                &calc_pos(
-                    $node{GPSMinLon}, $node{GPSMaxLat}, $node{GPSMaxLon},
-                    $node{GPSMaxLat}, $node{BSSID}
-                )
-                );
-            $net_lon = $node{GPSBestLon};
-            $net_lat = $node{GPSBestLat};
+            my $net_lon = $node{GPSBestLon};
+            my $net_lat = $node{GPSBestLat};
+            my $net_ele = $node{GPSBestAlt};
 
             my $essid = $node{'ESSID'};
-            $kml .= "<Style id=\"${essid}_normal\">
-            <IconStyle>
-                <color>${ALPHA}${color}</color>
-                <scale>$net_scale_range</scale>
-            </IconStyle>
-            </Style>
-        <Style id=\"${essid}_highlight\">
-            <IconStyle>
-                <color>${ALPHA}${color}</color>
-                <scale>$net_scale_range</scale>
-            </IconStyle>
-            </Style>
-        <StyleMap id=\"${essid}_styleMap\">
-            <Pair>
-            <key>normal</key>
-            <styleUrl>#${essid}_normal</styleUrl>
-            </Pair>
-            <Pair>
-            <key>highlight</key>
-            <styleUrl>#${essid}_highlight</styleUrl>
-            </Pair>
-        </StyleMap>
-        ";
-
-            $kml .= "<Placemark>\n";
-            $kml .= "    <name>$node{'ESSID'}</name>\n";
-            $kml .= "<styleUrl>#${essid}_styleMap</styleUrl>";
-            $kml .= "    <description><![CDATA[";
-            $kml .= 'BSSID:' . $node{'BSSID'} . ", ";
-            $kml .= 'Encryption: ' . $node{'Encryption'} . ', ';
-            $kml .= 'Channel: ' . $node{'Channel'};
-            $kml .= $clients;
-            $kml .= "]]></description>\n";
-            $kml .= "    <Point>\n";
-            $kml .= '<LookAt>';
-            $kml .= "<longitude>$net_lon</longitude>";
-            $kml .= "<latitude>$net_lat</latitude>";
-            $kml .= "<altitude>1</altitude>";
-            $kml .= "<range>$net_scale_range</range>";
-            $kml .= "<tilt>1</tilt>";
-            $kml .= "<heading>1</heading>";
-            $kml .= "</LookAt>";
-            $kml
-                .= "      <coordinates>$node{'GPSBestLon'},$node{'GPSBestLat'},0</coordinates>\n";
-            $kml .= "    </Point>\n";
-            $kml .= "  </Placemark>\n";
+            $gpx .= "<wpt lat=\"$net_lat\" lon=\"$net_lon\">\n";
+            $gpx .= "  <name>$essid</name>\n";
+            $gpx .= "  <ele>$net_ele</ele>\n";
+            $gpx .= "  <cmt>".$node{'BSSID'}."</cmt>\n";
+            $gpx .= "  <desc>Encryption: ".$node{'Encryption'}.", ";
+            $gpx .= "Channel: ".$node{'Channel'};
+            $gpx .= $clients;
+            $gpx .= "</desc>\n";
+            $gpx .= "  <sym>$symbol</sym>\n";
+            $gpx .= "</wpt>\n";
             $counter = $counter + 1;
         }
     }
@@ -1082,6 +976,7 @@ if ( $options{query} ) {
         #my @input = <IN>;
         my $counter = 0;
         my @input;
+        my $symbol;
         foreach (@input) {
             my @data  = split( ';', $_ );
             my %node  = ();
@@ -1095,38 +990,56 @@ if ( $options{query} ) {
             if ( $node{'NetType'} ne "infrastructure" ) {
                 next;
             }
-            if ( $node{'GPSBestLat'} == 0 or $node{'GPSBestLat'} == 0 ) {
+            if ( $node{'GPSBestLat'} == 0 and $node{'GPSBestLon'} == 0 ) {
                 next;
             }
 
-            $kml .= "\n <Placemark>\n";
+            if ( !defined( $node{Encryption} ) ) {
+                $node{Encryption} = 'None';
+            }
+
+            if ( $node{Encryption} =~ /AES\-CCM/i ) {
+                $symbol = $SYM_RSN;
+            }
+            elsif ( $node{Encryption} =~ /TKIP/i ) {
+                $symbol = $SYM_WPA;
+            }
+            elsif ( $node{Encryption} =~ /WEP/i ) {
+                $symbol = $SYM_WEP;
+            }
+            else {
+                $symbol = $SYM_OPEN;
+            }
+
             $node{'ESSID'} =~ s/\</_/g;
             $node{'ESSID'} =~ s/\>/_/g;
-            $kml .= "    <name>$node{'ESSID'}</name>\n";
-            $kml .= "    <description><![CDATA[BSSID $node{'BSSID'}<br>";
-            $kml .= 'channel: ' . $node{'Channel'} . '<br>';
-            $kml
-                .= '<font color="green">encryption: '
-                . $node{'Encryption'}
-                . '</font><br>';
-            $kml .= "]]></description>\n";
-            $kml .= "    <Point>\n";
-            $kml
-                .= "      <coordinates>$node{'GPSBestLon'},$node{'GPSBestLat'},0</coordinates>\n";
-            $kml .= "    </Point>\n";
-            $kml .= "  </Placemark>\n";
+
+            my $net_lon = $node{GPSBestLon};
+            my $net_lat = $node{GPSBestLat};
+            my $net_ele = $node{GPSBestAlt};
+
+            my $essid = $node{'ESSID'};
+            $gpx .= "<wpt lat=\"$net_lat\" lon=\"$net_lon\">\n";
+            $gpx .= "  <name>$essid</name>\n";
+            $gpx .= "  <ele>$net_ele</ele>\n";
+            $gpx .= "  <cmt>".$node{'BSSID'}."</cmt>\n";
+            $gpx .= "  <desc>Encryption: ".$node{'Encryption'}.", ";
+            $gpx .= "Channel: ".$node{'Channel'};
+            $gpx .= "</desc>\n";
+            $gpx .= "  <sym>$symbol</sym>\n";
+            $gpx .= "</wpt>\n";
+
             $counter = $counter + 1;
         }
     }
-    $kml .= "\n</Document>\n";
-    $kml .= "</kml>\n";
+    $gpx .= "</gpx>\n";
 
     if ( $options{output} ) {
 
-        output( $options{output}, $kml );
+        output( $options{output}, $gpx );
     }
     else {
-        print $kml;
+        print $gpx;
     }
 }
 
