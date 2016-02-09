@@ -15,7 +15,7 @@ You will need to install the following modules for vikismet to work
 * updates positions in case of a better signal
 
 ## Howto
-* import APs
+#### Import APs
     vikismet -x kismet_file.netxml -d my_database
-* create gpx file
-    vikismet -q "select * from wireless" -d my_database -o out.gpx
+#### Create gpx file
+    vikismet -q "select * from wireless" -d my_database -o export.gpx
