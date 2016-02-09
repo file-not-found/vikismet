@@ -8,10 +8,11 @@ You will need to install the following modules for vikismet to work
 * DBD::SQLite
 
 ## Changes to GISKismet
-* html tags removed from kml output
+* changed output format from kml to gpx
+* html tags removed from gpx output
 * empty ssids replaced with --cloaked--
 * updates positions of known APs in case of better signal
 
 ## Howto
-* import APs: `vikismet -x kismet_file.netxml -d my_database` 
-* create kml file: `vikismet -q "select * from wireless" -d my_database -o out.kml`
+* import APs:       `vikismet -x kismet_file.netxml -d my_database` 
+* create gpx file:  `vikismet -q "select * from wireless" -d my_database -o out.gpx`
