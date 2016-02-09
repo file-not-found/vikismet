@@ -9,10 +9,13 @@ You will need to install the following modules for vikismet to work
 
 ## Changes to GISKismet
 * changed output format from kml to gpx
+* garmin symbols used for waypoints
 * html tags removed from gpx output
 * empty ssids replaced with --cloaked--
-* updates positions of known APs in case of better signal
+* updates positions in case of a better signal
 
 ## Howto
-* import APs:       `vikismet -x kismet_file.netxml -d my_database` 
-* create gpx file:  `vikismet -q "select * from wireless" -d my_database -o out.gpx`
+* import APs
+    vikismet -x kismet_file.netxml -d my_database
+* create gpx file
+    vikismet -q "select * from wireless" -d my_database -o out.gpx
