@@ -51,9 +51,10 @@ $options{debug}  = 0;
 $options{silent} = 0;
 $options{ignoregps} = 0;
 
+## Icon colors
 my $SYM_RSN  = 'Navaid, Blue';
 my $SYM_WPA  = 'Navaid, Violet';
-my $SYM_WEP  = 'Navaid, Orange';
+my $SYM_WEP  = 'Navaid, Red';
 my $SYM_OPEN = 'Navaid, White';
 
 my $CALCRANGE  = 0;                      # calculate network range

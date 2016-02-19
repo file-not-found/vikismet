@@ -1,0 +1,43 @@
+#!/bin/bash
+
+if [ $# -ne 1 ]; then
+    echo "USAGE: $0 <sqlite3 database>"
+    exit 0
+fi
+
+if [ "`file -b $1|grep -oi sqlite`" != "SQLite" ]; then
+    echo "Not a valid SQLite database"
+    exit 0
+fi
+
+echo "== Database statistics ======================="
+echo ""
+echo -en "Number of networks:\t"
+sqlite3 $1 "select count(*) from wireless"
+echo ""
+
+echo "== Encryption types =========================="
+echo ""
+echo -en "Open:\t"
+sqlite3 $1 "select count(*) from wireless where encryption='None'"
+echo -en "WEP:\t"
+sqlite3 $1 "select count(*) from wireless where encryption='WEP'"
+echo -en "WPA:\t"
+sqlite3 $1 "select count(*) from wireless where encryption!='None' and encryption!='WEP'"
+echo ""
+
+echo "== Channel distribution ======================"
+echo ""
+sqlite3 $1 "select channel from wireless order by channel" | uniq -c
+echo ""
+
+echo "== Most common ESSIDs ========================"
+echo ""
+echo "Open networks"
+sqlite3 $1 "select essid from wireless where essid !='' and encryption == 'None' order by essid" | uniq -c | sort -gr | head -n 15
+echo ""
+echo "WEP networks"
+sqlite3 $1 "select essid from wireless where essid !='' and encryption == 'WEP' order by essid" | uniq -c | sort -gr | head -n 15
+echo ""
+echo "WPA networks"
+sqlite3 $1 "select essid from wireless where essid !='' and encryption != 'None' and encryption!='WEP' order by essid" | uniq -c | sort -gr | head -n 15
