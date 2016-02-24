@@ -280,7 +280,7 @@ else {
 
 }
 
-if ( $options{defaultquery} == 1) {
+if ( $options{defaultquery} ) {
     $options{query} = "select * from wireless";
 }
 
