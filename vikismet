@@ -219,6 +219,7 @@ Kismet-newcore Options:
 
 Query
    -q  --query [sql]                SQL query
+   -Q  --default-query              Default SQL query ('select * from wireless')
    -m  --manual [csv]               CSV output of manual SQL query
 
    -o  --output [file]              Output filename
@@ -264,6 +265,7 @@ GetOptions(
     'debug=s' => sub { $options{debug} = 2 },
     'silent|s'  => sub { $options{silent} = 1 },
     'ignore-gps'  => sub { $options{ignoregps} = 1 },
+    'default-query|Q'  => sub { $options{defaultquery} = 1 },
 ) or exit 1;
 
 if ( $options{xml} ) {
@@ -276,6 +278,10 @@ elsif ( $options{csv} ) {
 }
 else {
 
+}
+
+if ( $options{defaultquery} == 1) {
+    $options{query} = "select * from wireless";
 }
 
 if (    !$options{xml}

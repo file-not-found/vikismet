@@ -13,6 +13,7 @@ You will need to install the following modules for vikismet to work
 * html tags removed from gpx output
 * empty ssids replaced with --cloaked--
 * updates positions in case of a better signal
+* modified commandline parameters
 * added db\_stats script for some database statistics
 
 ## Howto
@@ -22,7 +23,7 @@ Import kismet data
 
 Create gpx file
 
-    vikismet -q "select * from wireless" -d my_database -o export.gpx
+    vikismet -Q -d my_database -o export.gpx
 
 Open gpx file in viking
 
